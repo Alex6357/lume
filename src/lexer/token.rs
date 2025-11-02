@@ -1,4 +1,5 @@
 // src/lexer/token.rs
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // Keywords
@@ -16,14 +17,25 @@ pub enum Token {
     Return,
     Import,
     Export,
+    From,
+    Enum,
+    Class,
+    With,
+    Type,
+    Is,
 
     // Literals
     Int(i64),
-    Bool(bool),
+    Float(f64),
     Str(String),
+    PrefixedStr(String, String),
+    Char(char),
+    PrefixedChar(String, char),
+    Bool(bool),
 
     // Identifiers
     Ident(String),
+    Lifetime(String),
 
     // Operators
     Plus,
@@ -33,6 +45,8 @@ pub enum Token {
     Eq,
     EqEq,
     Neq,
+    Percent,
+    PercentEq,
     Lt,
     Gt,
     Le,
@@ -41,32 +55,40 @@ pub enum Token {
     Or,
     Not,
 
+    // Bitwise operators
+    Amp,   // &
+    Pipe,  // |
+    Caret, // ^
+    Tilde, // ~
+    Shl,   // <<
+    Shr,   // >>
+
+    // Compound assignment
+    PlusEq,  // +=
+    MinusEq, // -=
+    StarEq,  // *=
+    SlashEq, // /=
+    AmpEq,   // &=
+    PipeEq,  // |=
+    CaretEq, // ^=
+    ShlEq,   // <<=
+    ShrEq,   // >>=
+
     // Delimiters
-    /// (
-    LParenthesis,
-    /// )
-    RParenthesis,
-    /// {
+    LParen,
+    RParen,
     LBrace,
-    /// }
     RBrace,
-    /// [
     LBracket,
-    /// ]
     RBracket,
-    /// ,
     Comma,
-    /// ;
     Semicolon,
-    /// .
     Dot,
-    /// :
     Colon,
-    /// ->
-    Arrow,
+    Arrow, // ->
 
     // Special
-    Question, // ?
+    Question,
     FatArrow, // =>
     Eof,
 }
@@ -87,6 +109,15 @@ pub fn keyword_or_ident(ident: &str) -> Token {
         "return" => Token::Return,
         "import" => Token::Import,
         "export" => Token::Export,
+        "from" => Token::From,
+        "enum" => Token::Enum,
+        "class" => Token::Class,
+        "with" => Token::With,
+        "type" => Token::Type,
+        "is" => Token::Is,
+        "and" => Token::And,
+        "or" => Token::Or,
+        "not" => Token::Not,
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
         _ => Token::Ident(ident.into()),
