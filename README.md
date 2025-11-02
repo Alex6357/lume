@@ -15,7 +15,9 @@ Lume 是一个**强类型、内存安全、多范式**的编程语言，目标�
   - `Error` `None` 为**状态**而非**值**
 - **执行方式**：支持编译（AOT）与解释（JIT/REPL）两种模式
 
-## 设计细节（与 Rust 的主要差异）
+## 设计细节
+
+仅列出与 Rust 的差异，未列出但存在于 Rust 的特性大概率都会实现。
 
 ### 语法
 
@@ -40,9 +42,9 @@ Lume 是一个**强类型、内存安全、多范式**的编程语言，目标�
 
 | 实际类型 | 别名     |
 | -------- | -------- |
-| `bool`   | —        |
-| `i8`     | `byte`   |
-| `u8`     | `char`   |
+| `bool`   | -        |
+| `i8`     | -        |
+| `u8`     | `byte`   |
 | `i16`    | `short`  |
 | `u16`    | `ushort` |
 | `i32`    | `int`    |
@@ -468,11 +470,50 @@ case None => recover 1;
 
 ```text
 let color = Color::Red;
-let x = if color case Color::Red => 1;
+let x = if color case Color::Red => 1 else 0;
+
+/*
+展开为
+let x =
+match color
+{
+    case Color::Red => 1;
+    case _ => 0;
+}
+*/
 
 // 会报警告，除非显式压制，但可编译
-if result() case IOError as e if e.code == 404 => recover 0;
+if result() case IOError as e if e.code == 404 => recover 0 else 1;
 ```
+
+### `is` 关键字语法糖
+
+引入 `is` 关键字用于状态匹配。
+
+- `is` 是一个返回 bool 的操作符，用于检查状态容器（如 `Optional<T>` 或 `Result<T, E>`）是否处于指定状态且其内容匹配给定模板。它**不产生任何中间值**，右侧的 `Some(...)`、`Error {...}` 等仅作为只读匹配模式存在。可等效展开为 `match`。
+- 语法：`expr is pattern`，其中 `pattern` 仅允许状态表达式：
+
+  | 模式                    | 描述                                              |
+  | ----------------------- | ------------------------------------------------- |
+  | `None`                  | 匹配 `Optional<T>` 的空状态                       |
+  | `Some`                  | 匹配 `Optional<T>` 的非空状态                     |
+  | `Some(expr)`            | 匹配 `Optional<T>` 的非空状态，且内容等于 `expr`  |
+  | `OK`                    | 匹配 `Result<T, E>` 的成功状态                    |
+  | `OK(expr)`              | 匹配 `Result<T, E>` 的成功状态，且内容等于 `expr` |
+  | `Error`                 | 匹配 `Result<T, E>` 的错误状态                    |
+  | `Error { field: expr }` | 匹配 `Result<T, E>` 的错误状态，且所有字段值相等  |
+
+- `expr is pattern` 展开为：
+
+  ```text
+  match expr
+  {
+      case pattern as v if v == ... => true;
+      case _ => false;
+  };
+  ```
+
+- 不能用于非状态类型
 
 ### 宏
 
@@ -507,7 +548,7 @@ func funcForWindows() {}
 
 ### 其他语言特性
 
-- 支持 `and` / `or` / `not` 逻辑运算符（建议使用）。
+- 支持 `and` / `or` / `not` 逻辑运算符，弃用 `&&` / `||` / `!`。
 
 ### 规划
 
