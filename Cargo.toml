@@ -1,0 +1,8 @@
+[package]
+name = "lume"
+version = "0.1.0"
+edition = "2024"
+description = "A memory-safe, ownership-based systems language"
+license = "MIT"
+
+[dependencies]
