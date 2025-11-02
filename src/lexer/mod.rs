@@ -313,6 +313,7 @@ impl<'a> Lexer<'a> {
                 ':' => self.push_token((Token::Colon, self.span(start, start + 1))),
                 '.' => self.push_token((Token::Dot, self.span(start, start + 1))),
                 '?' => self.push_token((Token::Question, self.span(start, start + 1))),
+                '@' => self.push_token((Token::At, self.span(start, start + 1))),
                 _ => {
                     return Err(LumeError::Lexical {
                         msg: format!("unexpected character: '{}'", ch),

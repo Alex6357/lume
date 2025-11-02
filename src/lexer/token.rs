@@ -23,6 +23,11 @@ pub enum Token {
     With,
     Type,
     Is,
+    Unsafe,
+    Extern,
+    Async,
+    Await,
+    Spawn,
 
     // Literals
     Int(i64),
@@ -86,6 +91,7 @@ pub enum Token {
     Dot,
     Colon,
     Arrow, // ->
+    At,
 
     // Special
     Question,
@@ -120,6 +126,11 @@ pub fn keyword_or_ident(ident: &str) -> Token {
         "not" => Token::Not,
         "true" => Token::Bool(true),
         "false" => Token::Bool(false),
+        "unsafe" => Token::Unsafe,
+        "extern" => Token::Extern,
+        "async" => Token::Async,
+        "await" => Token::Await,
+        "spawn" => Token::Spawn,
         _ => Token::Ident(ident.into()),
     }
 }
