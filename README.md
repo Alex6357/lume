@@ -71,6 +71,7 @@ Lume 是一个**强类型、内存安全、多范式**的编程语言，目标�
 - 必须使用 `own` 关键字显式转移所有权
 - 非显式转移行为**默认复制（Copy）**（通过 `Copy` trait），未实现则编译时报错
 - 返回值自动转移所有权
+- 拥有所有权的纯右值自动转移所有权
 
 > own 关键字作用于变量，表示 “交出变量的所有权”
 
@@ -89,7 +90,7 @@ func foo(a: Bar) -> Bar  // 返回值不需要写 own
 };
 
 let f = Bar();
-let g = foo(own f);  // 调用时显式标注所有权传递
+let g = foo(own f);  // 调用时显式标注所有权传递，同时纯右值自动转移
 ```
 
 ### 生命周期
@@ -121,7 +122,7 @@ Lume 的模块系统建立在三级抽象模型之上：workspace（工作区）
 
 ##### Workspace（工作区）
 
-工作区由项目根目录下的 lume.workspace.toml 文件定义，用于管理多个本地开发的包。工作区本身不参与构建或分发，仅在开发阶段提供跨包引用能力。
+工作区由项目根目录下的 `lume.workspace.toml` 文件定义，用于管理多个本地开发的包。工作区本身不参与构建或分发，仅在开发阶段提供跨包引用能力。
 
 ```toml
 # lume.workspace.toml
@@ -132,13 +133,13 @@ members = [
 ]
 ```
 
-成员路径必须指向包含 lume.toml 的目录。
+成员路径必须指向包含 `lume.toml` 的目录。
 
 ##### Package（包）
 
-包是 Lume 中依赖管理、构建和分发的基本单位，由 lume.toml 文件定义。每个包具有全局唯一标识，格式为 [@scope/]name（例如 @acme/http 或 serde）。
+包是 Lume 中依赖管理、构建和分发的基本单位，由 `lume.toml` 文件定义。每个包具有全局唯一标识，格式为 `[@scope/]name`（例如 `@acme/http` 或 `serde`）。
 
-包默认从 src/ 目录加载源码，可通过 [lib].src-dir 配置项覆盖。包可声明依赖、导出映射、链接策略等元数据。
+包默认从 `src/` 目录加载源码，可通过 `src-dir` 配置项覆盖。包可声明依赖、导出映射、链接策略等元数据。
 
 ```toml
 # lume.toml
@@ -146,12 +147,10 @@ name = "http"
 scope = "acme"          # 可选，默认无作用域
 version = "0.1.0"
 
-[lib]
 src-dir = "source"      # 可选，默认 "src"
 
 [dependencies]
-"@std/fs" = "*"
-"serde" = "1.0"
+"serde" = "^1.0.0"
 ```
 
 导入路径的第一段始终对应一个包标识。
@@ -160,22 +159,22 @@ src-dir = "source"      # 可选，默认 "src"
 
 模块是包内部的逻辑代码单元，不具备独立身份。其物理形式为：
 
-- 单个 .l 文件（如 src/utils.l），或
-- 包含 mod.l 的目录（如 src/net/mod.l 定义 net 模块）。
+- 单个 `.l` 文件（如 `src/utils.l`），或
+- 包含 mod.l 的目录（如 `src/net/mod.l` 定义 `net` 模块）。
 
-模块路径相对于包的源码根目录，通过子路径引用（例如 "@self/net" 对应 src/net/mod.l）。模块不能声明独立依赖或版本，所有依赖由所属包统一管理。
+模块路径相对于包的源码根目录，通过子路径引用（例如 `@self/net` 对应 `src/net/mod.l`）。模块不能声明独立依赖或版本，所有依赖由所属包统一管理。
 
-同一目录下禁止同时存在 name.l 文件与 name/ 目录，否则编译报错，以避免路径歧义。
+同一目录下禁止同时存在 `name.l` 文件与 `name/` 目录，否则编译报错，以避免路径歧义。
 
 #### 2. 配置文件命名
 
-| 文件                | 位置             | 作用                         |
-| ------------------- | ---------------- | ---------------------------- |
-| lume.workspace.toml | 项目根目录       | 定义工作区及成员包           |
-| lume.toml           | 包根目录         | 定义包元数据、依赖与构建配置 |
-| lume.module.toml    | 模块目录（可选） | 定义模块内部路径映射         |
+| 文件                  | 位置             | 作用                         |
+| --------------------- | ---------------- | ---------------------------- |
+| `lume.workspace.toml` | 项目根目录       | 定义工作区及成员包           |
+| `lume.toml`           | 包根目录         | 定义包元数据、依赖与构建配置 |
+| `lume.module.toml`    | 模块目录（可选） | 定义模块内部路径映射         |
 
-lume.module.toml 优先级高于 mod.l，但不能用于规避文件与目录同名冲突。物理布局必须保持无歧义。
+`lume.module.toml` 优先级高于 `mod.l`，但不能用于规避文件与目录同名冲突。物理布局必须保持无歧义。
 
 #### 3. 路径与导入语义
 
@@ -183,36 +182,36 @@ Lume 严格区分相对路径与包路径，二者语义互斥。
 
 ##### 路径分类
 
-- **相对路径**：以 ./ 或 ../ 开头，用于引用当前包内的本地文件或目录。
-- **包路径**：不以 ./ 或 ../ 开头，必须解析为某个已声明的包。
+- **相对路径**：以 `./` 或 `../` 开头，用于引用当前包内的本地文件或目录。
+- **包路径**：不以 `./` 或 `../` 开头，必须解析为某个已声明的包。
 
-所有非相对路径必须对应一个有效的包标识。编译器不会在当前包的源码目录中查找裸包名（例如 "net" 不会匹配 src/net/）。
+所有非相对路径必须对应一个有效的包标识。编译器不会在当前包的源码目录中查找裸包名（例如 `net` 不会匹配 `src/net/`）。
 
-保留作用域 @self 自动解析为当前包名，用于安全地引用自身模块。
+保留作用域 `@self` 自动解析为当前包名，用于安全地引用自身模块。
 
 ##### 包路径解析流程
 
-对 import ... from "@scope/name/sub/path" 的解析步骤如下：
+对 `import ... from "@scope/name/sub/path";` 的解析步骤如下：
 
-1. 提取包标识 @scope/name；
+1. 提取包标识 `@scope/name`；
 2. 定位包：
-   - 若为 @self，则使用当前包；
-   - 否则依次检查工作区成员、注册表依赖和内置包（如 @std）；
-3. 在目标包的源码根目录下解析子路径 sub/path：
-   - 若路径以 `.l` 结尾，只会尝试 sub/path.l
+   - 若为 `@self`，则使用当前包；
+   - 否则依次检查工作区成员、注册表依赖和内置包（如 `@std`）；
+3. 在目标包的源码根目录下解析子路径 `sub/path`：
+   - 若路径以 `.l` 结尾，只会尝试 `sub/path.l`
    - 若路径不以 `.l` 结尾：
-     - 优先读取 sub/path/lume.module.toml 中的 exports 映射；
-     - 否则尝试 sub/path/mod.l；
-     - 若路径不以 / 结尾，也可尝试 sub/path.l；
+     - 优先读取 `sub/path/lume.module.toml` 中的 `exports` 映射；
+     - 否则尝试 `sub/path/mod.l`；
+     - 若路径不以 `/` 结尾，也可尝试 `sub/path.l`；
 4. 若未找到，编译报错。
 
 ##### 使用建议
 
-- 同一逻辑模块内的文件互引应使用相对路径（如 "./helper.l"）；
-- 同包内不同模块之间引用推荐使用 "@self/module"；
-- 外部依赖使用完整包路径（如 "@acme/utils"）；
-- 测试和示例代码应通过 "@self" 模拟外部用户视角；
-- 禁止在同一逻辑模块内通过 "@self/..." 引用自身文件。
+- 同一逻辑模块内的文件互引应使用相对路径（如 `./helper.l`）；
+- 同包内不同模块之间引用推荐使用 `@self/module`；
+- 外部依赖使用完整包路径（如 `@acme/utils`）；
+- 测试和示例代码应通过 `@self` 模拟外部用户视角；
+- 尽量不要在同一逻辑模块内通过 `@self/...` 引用自身文件。
 
 #### 4. 高级特性
 
@@ -259,9 +258,9 @@ export("src/utils/helpers.l") func local() {}  // 仅指定路径文件可见（
 
 ##### 默认与具名导入导出
 
-- 默认导出写在大括号外：import App from "pkg";
-- 具名导出写在大括号内：import { func } from "pkg";
-- 不允许 import { default as X }，应写作 import X from "pkg"。
+- 默认导出写在大括号外：`import App from "pkg";`;
+- 具名导出写在大括号内：`import { func } from "pkg";`;
+- 不允许 `import { default as X }`，应写作 `import X from "pkg";`。
 
 每个模块最多一个默认导出。
 
@@ -271,22 +270,22 @@ export("src/utils/helpers.l") func local() {}  // 仅指定路径文件可见（
 
 ```text
 // 将默认导出转为具名导出
-export App, { myFunc } from "mylib";
+export App, { myFunc } from "./mylib";
 
 // 透传默认导出 + 转发具名导出
-export default, { myFunc } from "mylib";
+export default, { myFunc } from "./mylib";
 
 // 重命名具名导出
-export { myFunc as myFunc2 } from "mylib";
+export { myFunc as myFunc2 } from "./mylib";
 
 // 将具名导出提升为默认导出
-export { myFunc as default } from "mylib";
+export { myFunc as default } from "./mylib";
 
 // 透传所有具名导出，但不透传默认导出
-export { * } from "mylib";
+export { * } from "./mylib";
 
 // 透传所有具名导出，并透传默认导出
-export default, { * } from "mylib";
+export default, { * } from "./mylib";
 ```
 
 所有重导出均为符号转发，无运行时开销。
@@ -304,11 +303,14 @@ import { *, default as App } as mylib from "mylib";
 import { myFunc, myOtherFunc, default as App } as mylib from "mylib";
 ```
 
-若不绑定到命名空间，则禁止显式 default as X。
+若不绑定到命名空间，则禁止显式 `default as X`。
 
-##### impl 的自动导入
+##### `impl` 的导入
 
 ```text
+// 导入某个 impl
+import { impl SomeTrait for SomeType } from "mylib";
+
 // 导入所有导出的 impl
 import { impl } from "mylib";
 
@@ -347,7 +349,7 @@ excluding 后可接单个项或大括号列表。排除不存在项仅触发 lin
 
 - 禁止任何模块间的循环依赖，包括间接循环；
 - 文件系统路径比较进行归一化处理，预防大小写或 Unicode 差异导致的跨平台问题；
-- Linter 默认警告硬编码本包名，推荐使用 @self。
+- Linter 默认警告硬编码本包名，推荐使用 `@self`。
 
 ### 注释与命名规范
 
@@ -507,17 +509,17 @@ impl Printable for Foo
 func foo<T>(x: T) -> T {};
 func bar<T impl Printable>(x: T) -> void {};
 func baz<T = int>(x: T) -> T {};
-func qux<T>(x: T) -> void
+func qux<'a, T>(x: &'a T) -> void
 where
     T impl Send,
-    T outlives 'static
+    T outlives 'a
 {};
 ```
 
 ### 异步与并发
 
 - `async` 函数返回 `Future<T>`，`await` 解包
-- `spawn` 提交并发任务给运行时，返回 `JoinHandle<T>`（`T: Send`）
+- `spawn` 提交并发任务给运行时，返回 `JoinHandle<T>`（`T impl Send`）
 - 支持 `await (t1, t2, ...)` 同时等待多个任务，仅在 `await` 中可以使用这个语法糖
 
 #### 执行上下文规则
@@ -526,7 +528,7 @@ where
 | --------------- | --------------------- | -------------------------- |
 | `async` 函数    | 逻辑并发（非阻塞）    | 提交任务给运行时，允许并行 |
 | 非 `async` 顶层 | 阻塞（`block_on` 糖） | 阻塞等待，必须 `await`     |
-| 普通函数        | ❌ 禁止               | 可返回 `JoinHandle<T>`     |
+| 普通函数        | 禁止                  | 可返回 `JoinHandle<T>`     |
 
 ### 脚本模式与编译模式
 
@@ -581,7 +583,7 @@ class MyError extends Error
     myCode: int;
 }
 
-... return MyError { myMessage: "My Error", myCode: 1 };
+... return MyError { myMessage = "My Error", myCode = 1 };
 ```
 
 #### 声明与抛出
@@ -593,8 +595,8 @@ class MyError extends Error
 ```text
 func foo() -> int throws ValueError, IOError
 {
-    if ... return ValueError { message: "Value Error"};
-    if ... return IOError { message: "IO Error" };
+    if ... return ValueError { message = "Value Error"};
+    if ... return IOError { message = "IO Error" };
     if ... return Error {};  // 无参数错误可以省略大括号，但建议写全
     return 0;
 }
@@ -692,7 +694,7 @@ case None => recover 1;
 
 ```text
 let color = Color::Red;
-let x = if color case Color::Red => 1 else 0;
+let x = if color case Color::Red => 1 else => 0;
 
 /*
 展开为
@@ -705,7 +707,7 @@ match color
 */
 
 // 会报警告，除非显式压制，但可编译
-if result() case IOError as e if e.code == 404 => recover 0 else 1;
+if result() case IOError as e if e.code == 404 => recover 0 else => 1;
 ```
 
 ### `is` 关键字语法糖
@@ -715,15 +717,15 @@ if result() case IOError as e if e.code == 404 => recover 0 else 1;
 - `is` 是一个返回 bool 的操作符，用于检查状态容器（如 `Optional<T>` 或 `Result<T, E>`）是否处于指定状态且其内容匹配给定模板。它**不产生任何中间值**，右侧的 `Some(...)`、`Error {...}` 等仅作为只读匹配模式存在。可等效展开为 `match`。
 - 语法：`expr is pattern`，其中 `pattern` 仅允许状态表达式：
 
-  | 模式                    | 描述                                              |
-  | ----------------------- | ------------------------------------------------- |
-  | `None`                  | 匹配 `Optional<T>` 的空状态                       |
-  | `Some`                  | 匹配 `Optional<T>` 的非空状态                     |
-  | `Some(expr)`            | 匹配 `Optional<T>` 的非空状态，且内容等于 `expr`  |
-  | `OK`                    | 匹配 `Result<T, E>` 的成功状态                    |
-  | `OK(expr)`              | 匹配 `Result<T, E>` 的成功状态，且内容等于 `expr` |
-  | `Error`                 | 匹配 `Result<T, E>` 的错误状态                    |
-  | `Error { field: expr }` | 匹配 `Result<T, E>` 的错误状态，且所有字段值相等  |
+  | 模式                     | 描述                                              |
+  | ------------------------ | ------------------------------------------------- |
+  | `None`                   | 匹配 `Optional<T>` 的空状态                       |
+  | `Some`                   | 匹配 `Optional<T>` 的非空状态                     |
+  | `Some(expr)`             | 匹配 `Optional<T>` 的非空状态，且内容等于 `expr`  |
+  | `OK`                     | 匹配 `Result<T, E>` 的成功状态                    |
+  | `OK(expr)`               | 匹配 `Result<T, E>` 的成功状态，且内容等于 `expr` |
+  | `Error`                  | 匹配 `Result<T, E>` 的错误状态                    |
+  | `Error { field = expr }` | 匹配 `Result<T, E>` 的错误状态，且所有字段值相等  |
 
 - `expr is pattern` 展开为：
 
