@@ -223,10 +223,10 @@ Lume 严格区分相对路径与包路径，二者语义互斥。
 export func global() {}               // 全局可见（等价于 pub）
 export(package) func pkg_only() {}    // 仅当前包内可见（等价于 pub(crate)）
 export(parent) func parent_only() {}  // 仅父包及其子包可见（等价于 pub(super)）
-export("src/utils/helpers.l") func local() {}  // 仅指定路径文件可见（等价于 pub(in path)）
+export("@self/utils/helpers.l") func local() {}  // 仅指定路径模块可见（等价于 pub(in path)），解析方式同 import
 ```
 
-路径必须是相对于包根的绝对路径，不支持通配符或目录范围。
+路径不支持通配符或目录范围。
 
 ##### 模块聚合与路径映射
 
