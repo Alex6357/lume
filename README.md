@@ -95,11 +95,11 @@ let g = foo(own f);  // 调用时显式标注所有权传递
 ### 生命周期
 
 - 使用 `'a`、`'b` 等标记生命周期
-- 生命周期标注在**类型**上，如 `'a &T`
+- 生命周期标注在**类型**上，如 `&'a T`
 - 使用 `outlives` 约束生命周期长短关系
 
 ```text
-func maxRef<'short, 'long>(x: 'short &Foo, y: 'long &Foo) -> 'long &Foo
+func maxRef<'short, 'long>(x: &'short Foo, y: &'long Foo) -> &'long Foo
 where
     'long outlives 'short
 {
@@ -109,7 +109,7 @@ where
 
 class 'a Bar
 {
-    value: 'a &int;
+    value: &'a int;
 }
 ```
 
