@@ -23,6 +23,7 @@ pub enum Token {
     From,
     Enum,
     Class,
+    Macro,
     With,
     Type,
     Is,
@@ -31,6 +32,10 @@ pub enum Token {
     Async,
     Await,
     Spawn,
+
+    // Kept for future use
+    Effect,
+    // Pure,
 
     // Literals
     Int(i64),
@@ -124,6 +129,7 @@ pub fn keyword_or_ident(ident: &str) -> Token {
         "from" => Token::From,
         "enum" => Token::Enum,
         "class" => Token::Class,
+        "macro" => Token::Macro,
         "with" => Token::With,
         "type" => Token::Type,
         "is" => Token::Is,
@@ -137,6 +143,7 @@ pub fn keyword_or_ident(ident: &str) -> Token {
         "async" => Token::Async,
         "await" => Token::Await,
         "spawn" => Token::Spawn,
+        "effect" => Token::Effect,
         _ => Token::Ident(ident.into()),
     }
 }
