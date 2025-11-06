@@ -4,6 +4,22 @@
 
 Lume 是一个**强类型、内存安全、多范式**的编程语言，目标是融合现代语言的易用性与系统语言的性能和安全性。~~实际上是 Rust++~~
 
+### 设计哲学
+
+- 显式而非隐式
+- 配置而非约定，但提供约定的默认配置
+- 关键字而非符号魔法
+- 多范式融合，职责分明
+- 错误是流状态而非值
+- 能看懂很重要
+
+- Explicit, not implicit
+- Configurable, not convention-driven - but with sensible defaults
+- Keywords over symbolic magic
+- Multi-paradigm with clear responsibilities
+- Errors are flow states, not values
+- Readability matters
+
 ### 核心特性
 
 - **语法风格**：类 Dart / TypeScript，使用四空格缩进（非强制）
