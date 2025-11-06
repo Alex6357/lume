@@ -1,4 +1,4 @@
-# Lume 语言设计文档（v0.2）
+# Lume 语言设计草案（v0.2）
 
 ## 综述
 
@@ -83,13 +83,13 @@ let d = "hello".toString();  // 生成 String
 let e = d;  // ❌错误，无法复制 String，需要显式转移所有权
 let e = own b;  // ✅正确，显示转移 b 的所有权，b 失效
 
-func foo(own a: Bar) -> Bar  // 显式要求 a 具有所有权，返回值不需要写 own
+func foo(a: Bar) -> Bar  // 返回值不需要写 own
 {
     return a;  // 返回值自动转移
 };
 
 let f = Bar();
-let g = foo(own f);  // 参数与调用均需显式标注所有权传递
+let g = foo(own f);  // 调用时显式标注所有权传递
 ```
 
 ### 生命周期
@@ -115,17 +115,239 @@ class 'a Bar
 
 ### 模块系统
 
-- 与 ECMAScript Modules 几乎一致
-- 引入 `link`： `static` / `dynamic` 控制链接方式：
+Lume 的模块系统建立在三级抽象模型之上：workspace（工作区）、package（包）和 module（模块）。这三级共同构成依赖解析、代码组织与构建分发的基础。
 
-  ```text
-  import { foo } from "./mod.lume" with { link: "static" };  // 静态链接（默认，可省略）
-  import { bar } from "./mod.lume" with { link: "dynamic" };  // 动态链接（需预编译为动态库）
-  export func baz() { ... }
-  ```
+#### 1. 三级模型
 
-- 特殊导入语法：
-  - impl：`import { impl Foo for Bar } from "./mod.lume";`
+##### Workspace（工作区）
+
+工作区由项目根目录下的 lume.workspace.toml 文件定义，用于管理多个本地开发的包。工作区本身不参与构建或分发，仅在开发阶段提供跨包引用能力。
+
+```toml
+# lume.workspace.toml
+members = [
+  "crates/core",
+  "crates/net",
+  "examples/demo"
+]
+```
+
+成员路径必须指向包含 lume.toml 的目录。
+
+##### Package（包）
+
+包是 Lume 中依赖管理、构建和分发的基本单位，由 lume.toml 文件定义。每个包具有全局唯一标识，格式为 [@scope/]name（例如 @acme/http 或 serde）。
+
+包默认从 src/ 目录加载源码，可通过 [lib].src-dir 配置项覆盖。包可声明依赖、导出映射、链接策略等元数据。
+
+```toml
+# lume.toml
+name = "http"
+scope = "acme"          # 可选，默认无作用域
+version = "0.1.0"
+
+[lib]
+src-dir = "source"      # 可选，默认 "src"
+
+[dependencies]
+"@std/fs" = "*"
+"serde" = "1.0"
+```
+
+导入路径的第一段始终对应一个包标识。
+
+##### Module（模块）
+
+模块是包内部的逻辑代码单元，不具备独立身份。其物理形式为：
+
+- 单个 .l 文件（如 src/utils.l），或
+- 包含 mod.l 的目录（如 src/net/mod.l 定义 net 模块）。
+
+模块路径相对于包的源码根目录，通过子路径引用（例如 "@self/net" 对应 src/net/mod.l）。模块不能声明独立依赖或版本，所有依赖由所属包统一管理。
+
+同一目录下禁止同时存在 name.l 文件与 name/ 目录，否则编译报错，以避免路径歧义。
+
+#### 2. 配置文件命名
+
+| 文件                | 位置             | 作用                         |
+| ------------------- | ---------------- | ---------------------------- |
+| lume.workspace.toml | 项目根目录       | 定义工作区及成员包           |
+| lume.toml           | 包根目录         | 定义包元数据、依赖与构建配置 |
+| lume.module.toml    | 模块目录（可选） | 定义模块内部路径映射         |
+
+lume.module.toml 优先级高于 mod.l，但不能用于规避文件与目录同名冲突。物理布局必须保持无歧义。
+
+#### 3. 路径与导入语义
+
+Lume 严格区分相对路径与包路径，二者语义互斥。
+
+##### 路径分类
+
+- **相对路径**：以 ./ 或 ../ 开头，用于引用当前包内的本地文件或目录。
+- **包路径**：不以 ./ 或 ../ 开头，必须解析为某个已声明的包。
+
+所有非相对路径必须对应一个有效的包标识。编译器不会在当前包的源码目录中查找裸包名（例如 "net" 不会匹配 src/net/）。
+
+保留作用域 @self 自动解析为当前包名，用于安全地引用自身模块。
+
+##### 包路径解析流程
+
+对 import ... from "@scope/name/sub/path" 的解析步骤如下：
+
+1. 提取包标识 @scope/name；
+2. 定位包：
+   - 若为 @self，则使用当前包；
+   - 否则依次检查工作区成员、注册表依赖和内置包（如 @std）；
+3. 在目标包的源码根目录下解析子路径 sub/path：
+   - 若路径以 `.l` 结尾，只会尝试 sub/path.l
+   - 若路径不以 `.l` 结尾：
+     - 优先读取 sub/path/lume.module.toml 中的 exports 映射；
+     - 否则尝试 sub/path/mod.l；
+     - 若路径不以 / 结尾，也可尝试 sub/path.l；
+4. 若未找到，编译报错。
+
+##### 使用建议
+
+- 同一逻辑模块内的文件互引应使用相对路径（如 "./helper.l"）；
+- 同包内不同模块之间引用推荐使用 "@self/module"；
+- 外部依赖使用完整包路径（如 "@acme/utils"）；
+- 测试和示例代码应通过 "@self" 模拟外部用户视角；
+- 禁止在同一逻辑模块内通过 "@self/..." 引用自身文件。
+
+#### 4. 高级特性
+
+##### 链接方式控制
+
+通过 with { link = "..." } 子句指定链接策略：
+
+```text
+import { foo } from "./mod.l" with { link = "static" };  // 静态链接（默认，可省略）
+import { bar } from "./mod.l" with { link = "dynamic" };  // 动态链接（需预编译为动态库）
+```
+
+- static：静态链接（默认）；
+- dynamic：动态链接，需预编译为动态库。
+
+同一模块不能以不同链接方式被多次导入，否则编译报错。
+
+##### 精细导出可见性控制
+
+支持多级可见性修饰：
+
+```text
+export func global() {}               // 全局可见（等价于 pub）
+export(package) func pkg_only() {}    // 仅当前包内可见（等价于 pub(crate)）
+export(parent) func parent_only() {}  // 仅父包及其子包可见（等价于 pub(super)）
+export("src/utils/helpers.l") func local() {}  // 仅指定路径文件可见（等价于 pub(in path)）
+```
+
+路径必须是相对于包根的绝对路径，不支持通配符或目录范围。
+
+##### 模块聚合与路径映射
+
+通过 lume.module.toml 声明导出映射：
+
+```toml
+# src/mylib/lume.module.toml
+[exports]
+"/"            = "lib.l"                # 根路径 → lib.l
+"json"         = "formats/json.l"       # mylib/json → formats/json.l
+"crypto/aes"   = "crypto/aes_impl.l"    # 支持嵌套路径
+```
+
+未在 exports 中声明的文件不可被外部导入。
+
+##### 默认与具名导入导出
+
+- 默认导出写在大括号外：import App from "pkg";
+- 具名导出写在大括号内：import { func } from "pkg";
+- 不允许 import { default as X }，应写作 import X from "pkg"。
+
+每个模块最多一个默认导出。
+
+##### 重导出
+
+支持多种重导出形式：
+
+```text
+// 将默认导出转为具名导出
+export App, { myFunc } from "mylib";
+
+// 透传默认导出 + 转发具名导出
+export default, { myFunc } from "mylib";
+
+// 重命名具名导出
+export { myFunc as myFunc2 } from "mylib";
+
+// 将具名导出提升为默认导出
+export { myFunc as default } from "mylib";
+
+// 透传所有具名导出，但不透传默认导出
+export { * } from "mylib";
+
+// 透传所有具名导出，并透传默认导出
+export default, { * } from "mylib";
+```
+
+所有重导出均为符号转发，无运行时开销。
+
+##### 导入到命名空间
+
+```text
+// 仅具名导出
+import { * } as mylib from "mylib";
+
+// 具名 + 默认导出（重命名为 App）
+import { *, default as App } as mylib from "mylib";
+
+// 部分导入到命名空间
+import { myFunc, myOtherFunc, default as App } as mylib from "mylib";
+```
+
+若不绑定到命名空间，则禁止显式 default as X。
+
+##### impl 的自动导入
+
+```text
+// 导入所有导出的 impl
+import { impl } from "mylib";
+
+// 导入某 Trait 的所有 impl
+import { impl SomeTrait } from "mylib";
+
+// 导入某 Type 的所有 impl
+import { impl for SomeType } from "mylib";
+```
+
+可通过标记阻止自动导入：
+
+```text
+@noAutoImport
+export impl SomeTrait for SomeType {}  // 不参与 import { impl }，但可显式导入
+```
+
+##### 导入排除
+
+在批量导入时可排除特定项：
+
+```text
+// 排除具名导出
+import { *, excluding SomeType } from "mylib";
+
+// 排除特定 impl
+import { impl for SomeType, excluding impl SomeTrait } from "mylib";
+
+// 多项排除（需用大括号）
+import { impl, excluding { impl SomeTrait for SomeType, impl for SomeOtherType } } from "mylib";
+```
+
+excluding 后可接单个项或大括号列表。排除不存在项仅触发 lint 警告。
+
+#### 5. 补充规则
+
+- 禁止任何模块间的循环依赖，包括间接循环；
+- 文件系统路径比较进行归一化处理，预防大小写或 Unicode 差异导致的跨平台问题；
+- Linter 默认警告硬编码本包名，推荐使用 @self。
 
 ### 注释与命名规范
 
@@ -222,7 +444,7 @@ else
 - **禁止隐式类型提升或类型下降**。如下文中 `Bar` 与 `Foo` 是独立的两个类，仅进行了静态代码复用
 - 多态应通过 `trait` 实现。运行时多态需主动装箱
 - 成员默认 `private`
-- 构造函数首参必须为 `own self: Self`，返回类型必须为 `Self`，可省略类型首参与返回值的类型标注与 `return` 语句
+- 构造函数首参必须为 `self: Self`，返回类型必须为 `Self`，可省略类型首参与返回值的类型标注与 `return` 语句
 - 方法若使用 `self`，必须显式声明且为首参，可省略 `Self` 类型，但需注意可变性和引用与转移的标识，不允许 `self` 作为普通参数，也不允许声明为其他类型
 
 ```text
@@ -259,7 +481,7 @@ public:
 
     x(&self) -> int => self._x;  // 简单、无副作用的 getter 建议写成类似成员名称的形式，而不用 get 动词。
 
-    consume(own self: Self) -> Self
+    consume(self: Self) -> Self
     {
         return self; // 转移所有权
     };
